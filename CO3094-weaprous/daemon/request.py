@@ -75,6 +75,8 @@ class Request(): # parse and prepare
 
             if path == '/':
                 path = '/index.html'
+            if path == '/': 
+                path = '/test.html'
         except Exception:
             return None, None, None
 
@@ -82,7 +84,7 @@ class Request(): # parse and prepare
              
     def prepare_headers(self, request):
         """Prepares the given HTTP headers."""
-        lines = request.splitlines()
+        lines = request.split('\r\n')
         headers = {}
         for line in lines[1:]:
             if line == '': 
