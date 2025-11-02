@@ -66,7 +66,6 @@ class ChatPeer:
                 conn, addr = self.server_socket.accept()
                 print(f"[Peer {self.peer_id}] New connection from {addr}")
                 
-                # Spawn thread to handle this peer connection
                 handler_thread = threading.Thread(
                     target=self._handle_peer_connection,
                     args=(conn, addr),
@@ -80,12 +79,6 @@ class ChatPeer:
     
       
     def _handle_peer_connection(self, conn, addr):
-        """
-        Handle messages from a connected peer.
-        
-        :param conn (socket): Peer connection socket
-        :param addr (tuple): Peer address (ip, port)
-        """
         peer_id = None
         
         try:
@@ -134,7 +127,6 @@ class ChatPeer:
         with self.lock:
             self.message_history.append((timestamp, sender, message))
         
-        # Handle different message types
         if msg_type == MSG_TYPE_TEXT:
             text = data.get('text', '')
             print(f"\n[{timestamp}] {sender}: {text}")
@@ -148,32 +140,20 @@ class ChatPeer:
             text = data.get('text', '')
             print(f"\n[#{channel}] [{timestamp}] {sender}: {text}")
     def connect_to_peer(self, peer_id, peer_ip, peer_port):
-        """
-        Connect to another peer.
-        
-        :param peer_id (str): Target peer ID
-        :param peer_ip (str): Target peer IP address
-        :param peer_port (int): Target peer port
-        :rtype bool: True if connection successful
-        """
         try:
-            # Check if already connected
             if peer_id in self.peer_connections:
                 print(f"[Peer {self.peer_id}] Already connected to {peer_id}")
                 return True
             
-            # Create connection
             peer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             peer_socket.connect((peer_ip, peer_port))
             
-            # Store connection
             with self.lock:
                 self.peer_connections[peer_id] = peer_socket
                 self.peer_list[peer_id] = (peer_ip, peer_port)
             
             print(f"[Peer {self.peer_id}] Connected to {peer_id} at {peer_ip}:{peer_port}")
             
-            # Send registration message
             register_msg = MessageFactory.create_register_message(
                 self.peer_id, 
                 self.listen_ip, 
@@ -181,7 +161,6 @@ class ChatPeer:
             )
             peer_socket.sendall(register_msg.to_bytes())
             
-            # Start thread to receive messages from this peer
             recv_thread = threading.Thread(
                 target=self._handle_peer_connection,
                 args=(peer_socket, (peer_ip, peer_port)),
@@ -198,18 +177,13 @@ class ChatPeer:
     
     def send_message(self, text, recipient=None):
         """
-        Send text message to specific peer or broadcast to all.
-        
-        :param text (str): Message text
-        :param recipient (str): Recipient peer ID (None for broadcast)
-        :rtype bool: True if sent successfully
+        Send text message to specific peer or broadcast to all
+
         """
         try:
-            # Create message
             message = MessageFactory.create_text_message(self.peer_id, text, recipient)
             
             if recipient:
-                # Send to specific peer
                 if recipient in self.peer_connections:
                     self.peer_connections[recipient].sendall(message.to_bytes())
                     print(f"[Peer {self.peer_id}] Sent to {recipient}: {text}")
@@ -218,7 +192,6 @@ class ChatPeer:
                     print(f"[Peer {self.peer_id}] Not connected to {recipient}")
                     return False
             else:
-                # Broadcast to all connected peers
                 with self.lock:
                     for peer_id, conn in self.peer_connections.items():
                         try:
@@ -236,22 +209,15 @@ class ChatPeer:
     
     def send_channel_message(self, channel_name, text):
         """
-        Send message to a specific channel.
-        
-        :param channel_name (str): Channel name
-        :param text (str): Message text
-        :rtype bool: True if sent successfully
+        Send message to a specific channel
         """
         try:
-            # Check if in channel
             if channel_name not in self.channels:
                 print(f"[Peer {self.peer_id}] Not in channel #{channel_name}")
                 return False
             
-            # Create message
             message = MessageFactory.create_channel_message(self.peer_id, channel_name, text)
             
-            # Send to all peers in channel
             channel_peers = self.channels[channel_name]
             sent_count = 0
             
@@ -282,7 +248,6 @@ class ChatPeer:
             if channel_name not in self.channels:
                 self.channels[channel_name] = []
             
-            # Add self to channel
             if self.peer_id not in self.channels[channel_name]:
                 self.channels[channel_name].append(self.peer_id)
         
@@ -292,8 +257,6 @@ class ChatPeer:
     def get_message_history(self):
         """
         Get message history.
-        
-        :rtype list: List of (timestamp, sender, message) tuples
         """
         with self.lock:
             return self.message_history.copy()
@@ -302,8 +265,6 @@ class ChatPeer:
     def list_connected_peers(self):
         """
         List all currently connected peers.
-        
-        :rtype list: List of peer IDs
         """
         with self.lock:
             return list(self.peer_connections.keys())
@@ -317,7 +278,6 @@ class ChatPeer:
         
         self.running = False
         
-        # Close all peer connections
         with self.lock:
             for peer_id, conn in self.peer_connections.items():
                 try:
@@ -326,7 +286,6 @@ class ChatPeer:
                     pass
             self.peer_connections.clear()
         
-        # Close server socket
         if self.server_socket:
             try:
                 self.server_socket.close()
